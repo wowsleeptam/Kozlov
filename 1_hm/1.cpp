@@ -1,0 +1,119 @@
+#include <chrono>
+#include <iostream>
+#include <ratio>
+#include <vector>
+#include <algorithm>
+#include <thread>
+
+// enum class Period{std::chrono::millisecond, std::chrono::microseconds, std::chrono::nanoseconds, std::chrono::seconds};
+enum class Period{sec, millisec, microsec, nanosec};
+
+
+void sort(std::vector < int > & v)
+{
+	for (std::size_t i = 0; i < v.size() - 1; ++i)
+	{
+		for (std::size_t j = i + 1; j < v.size(); ++j)
+		{
+			if (v[i] > v[j])
+			{
+				std::swap(v[i], v[j]);
+			}
+		}
+	}
+}
+
+
+// Переделал аргументы оператора switch: принимает не int, а Period
+long long form(std::chrono::duration<double> a, Period format = Period::millisec){
+	switch (format) {
+		case Period::sec:
+			return a.count();
+			break;
+		case Period::millisec:
+			return std::chrono::duration_cast<std::chrono::milliseconds>(a).count();
+			break;
+		case Period::microsec:
+			return std::chrono::duration_cast<std::chrono::microseconds>(a).count();
+			break;
+		case Period::nanosec:
+			return std::chrono::duration_cast<std::chrono::nanoseconds>(a).count();
+			break;
+}
+return 0;
+}
+
+
+// Класс таймера
+class Timer{
+private:
+  std::chrono::time_point<std::chrono::steady_clock> m_start;
+  std::chrono::time_point<std::chrono::steady_clock> m_start_pause;
+	std::chrono::time_point<std::chrono::steady_clock> m_end; // Чтобы не захломлять код, объявлю m_end тут. Несколько раз понадобиться в коде
+  std::chrono::duration<double> m_elapsed;
+  bool m_is_pause_started = 0; // Счетчик того, идет ли сейчас пауза или нет
+
+public:
+  void start(){
+    m_start = std::chrono::steady_clock::now();}
+
+  void stop(){
+    m_is_pause_started = 1; // Счетчик паузы включен
+    m_start_pause = std::chrono::steady_clock::now();}
+
+
+// Теперь идея состоит в том, что мы как бы "передвигаем" счетчик временим к продолжению таймера, но нужно учесть
+// то засчитанное время вне паузы
+  void resume(){
+		m_is_pause_started = 0; // Счетчик паузы выключен
+    m_end = std::chrono::steady_clock::now();
+    m_start = m_end - (m_start_pause - m_start);
+}
+
+
+  void restart(){
+		m_is_pause_started = 0; // Обнуляю счетчик паузы
+  	m_start = std::chrono::steady_clock::now();}
+
+
+// Теперь elapsed выводит тип long long
+  long long elapsed(Period format = Period::millisec){
+		if (m_is_pause_started) m_elapsed = m_start_pause - m_start;
+		else {
+			m_end = std::chrono::steady_clock::now();
+			m_elapsed = m_end - m_start;}
+			return form(m_elapsed, format);}
+};
+
+int main(){
+  Timer timer1;
+  Timer timer2;
+	const auto size = 10000U;
+	std::vector < int > v(size, 0);
+	for (std::size_t i = 0; i < v.size(); ++i){
+		v[i] = v.size() - i;}
+	auto v_1 = v;
+	auto v_2 = v;
+
+
+	timer1.start();
+	timer1.stop();
+	sort(v_1);
+	std::cout << "Timer is = " <<timer1.elapsed(Period::millisec);
+	timer1.resume();
+	sort(v_2);
+	// std::sort(v_2.begin(), v_2.end());
+	std::cout << "\nTimer is = " <<timer1.elapsed(Period::millisec);
+
+
+	// std::chrono::seconds timespan(2);
+	// std::this_thread::sleep_for(timespan);
+	// std::this_thread::sleep_for(timespan);
+	// std::this_thread::sleep_for(timespan);
+	// std::this_thread::sleep_for(timespan);
+	// timer1.stop();
+	// std::this_thread::sleep_for(timespan);
+	// timer1.resume();
+
+
+}
